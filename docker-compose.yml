@@ -1,0 +1,114 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_demo
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_demo
+      DT_SERVICE_NAME: db
+      DT_CLUSTER_ID: homelab
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - demo_net
+
+  backend_node_v1:
+    build:
+      context: ./backend-node
+    container_name: backend_node_v1
+    volumes:
+      - ./backend-node:/app
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/app_demo"
+      VERSION: "1"
+      DT_SERVICE_NAME: backend-node-v1
+      DT_CLUSTER_ID: homelab
+    depends_on:
+      - db
+    networks:
+      - demo_net
+
+  backend_node_v2:
+    build:
+      context: ./backend-node
+    container_name: backend_node_v2
+    volumes:
+      - ./backend-node:/app
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/app_demo"
+      VERSION: "2"
+      DT_SERVICE_NAME: backend-node-v2
+      DT_CLUSTER_ID: homelab
+    depends_on:
+      - db
+    networks:
+      - demo_net
+
+  nginx_lb:
+    image: nginx:alpine
+    container_name: nginx_lb
+    volumes:
+      - ./nginx-lb.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "3001:80"  # o Go API ainda acha que fala com "3001"
+    depends_on:
+      - backend_node_v1
+      - backend_node_v2
+    networks:
+      - demo_net
+    environment:
+      DT_SERVICE_NAME: nginx_lb
+      DT_CLUSTER_ID: homelab
+
+  api:
+    build:
+      context: ./api-go
+    container_name: api_go
+    ports:
+      - "3000:3000"
+    depends_on:
+      - nginx_lb
+    networks:
+      - demo_net
+    environment:
+      DT_SERVICE_NAME: api
+      DT_CLUSTER_ID: homelab
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend_react
+    ports:
+      - "3002:80"
+    depends_on:
+      - api
+    networks:
+      - demo_net
+    environment:
+      DT_SERVICE_NAME: frontend
+      DT_CLUSTER_ID: homelab
+
+  loadgen:
+    image: grafana/k6
+    container_name: k6_loadgen
+    volumes:
+      - ./loadgen:/scripts
+    command: run --vus 10 --duration 1h /scripts/test.js
+    depends_on:
+      - api
+    networks:
+      - demo_net
+    environment:
+      DT_SERVICE_NAME: loadgen
+      DT_CLUSTER_ID: homelab
+    restart: on-failure
+
+
+volumes:
+  pg_data:
+
+networks:
+  demo_net:

@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Devbox
+.devbox/
+devbox.lock
+
+# Docker
+*.log
+logfile
+docker-compose.override.yml
+
+# Frontend React
+frontend/build/
+
+# Prisma
+backend-node/prisma/migrations/
+backend-node/.env
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Sistema
+.DS_Store
+Thumbs.db
